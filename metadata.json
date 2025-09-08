@@ -1,0 +1,5 @@
+{
+  "name": "Foundry AIP Agent",
+  "description": "An AI-powered technical consultant that provides expert, step-by-step guidance for developers and engineers working with the Palantir Foundry platform.",
+  "requestFramePermissions": []
+}

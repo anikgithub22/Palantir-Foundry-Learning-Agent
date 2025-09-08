@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Foundry AIP Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              'foundry-dark': '#111827', // Darker blue-gray
+              'foundry-charcoal': '#1f2937', // Slightly lighter blue-gray
+              'foundry-slate': '#374151',
+              'foundry-light-slate': '#9ca3af',
+              'foundry-accent': '#2dd4bf', // Brighter teal
+              'foundry-accent-hover': '#14b8a6',
+            },
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #111827; /* foundry-dark */
+        background-image:
+          radial-gradient(circle at 25% 25%, rgba(45, 212, 191, 0.1) 0%, transparent 40%),
+          radial-gradient(circle at 75% 75%, rgba(99, 102, 241, 0.05) 0%, transparent 40%);
+        background-size: 100% 100%;
+      }
+      /* Custom scrollbar for Webkit browsers (Chrome, Safari, etc.) */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #111827; /* foundry-dark */
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #374151; /* foundry-slate */
+        border-radius: 4px;
+        border: 2px solid #111827; /* foundry-dark */
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #9ca3af; /* foundry-light-slate */
+      }
+      
+      .futuristic-glow-button {
+        transition: all 0.3s ease;
+        box-shadow: 0 0 5px rgba(45, 212, 191, 0), 0 0 10px rgba(45, 212, 191, 0);
+      }
+      .futuristic-glow-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 0 15px rgba(45, 212, 191, 0.6), 0 0 25px rgba(45, 212, 191, 0.4);
+      }
+      
+      .futuristic-input-glow {
+        transition: box-shadow 0.3s ease;
+      }
+      .futuristic-input-glow:focus-within {
+         box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.5);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-foundry-dark text-gray-200 antialiased font-sans">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
