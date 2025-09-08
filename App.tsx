@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { generateFoundryGuidance, generateBuildPlan } from './services/geminiService';
 import QueryInput from './components/QueryInput';
 import ResponseDisplay from './components/ResponseDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
-import { FoundryLogo, MenuIcon, XIcon } from './components/icons';
+import { FoundryLogo, MenuIcon, XIcon, ArrowDownCircleIcon } from './components/icons';
 import HistoryPanel from './components/HistoryPanel';
 import BuildPlanDisplay from './components/BuildPlanDisplay';
 import ConfirmationModal from './components/ConfirmationModal';
@@ -34,6 +34,10 @@ const App: React.FC = () => {
   
   // State for clear history confirmation modal
   const [isClearModalOpen, setIsClearModalOpen] = useState<boolean>(false);
+  
+  // State and ref for auto-scroll feature
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
@@ -52,6 +56,43 @@ const App: React.FC = () => {
       console.error("Failed to save history to localStorage", error);
     }
   }, [history]);
+
+  // Effect for auto-scrolling when new content arrives
+  useEffect(() => {
+    if (response && isAutoScrollEnabled && mainContentRef.current) {
+        mainContentRef.current.scrollTo({
+            top: mainContentRef.current.scrollHeight,
+            behavior: 'smooth',
+        });
+    }
+  }, [response, isAutoScrollEnabled]);
+
+  const handleScroll = useCallback(() => {
+    if (mainContentRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = mainContentRef.current;
+      // Consider user is at the bottom if they are within a small tolerance (1px)
+      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 1;
+
+      if (isAtBottom) {
+        // If user scrolls to the bottom, re-enable auto-scroll
+        if (!isAutoScrollEnabled) setIsAutoScrollEnabled(true);
+      } else {
+        // If user scrolls up, disable auto-scroll
+        if (isAutoScrollEnabled) setIsAutoScrollEnabled(false);
+      }
+    }
+  }, [isAutoScrollEnabled]);
+
+  // Attach and clean up scroll listener
+  useEffect(() => {
+    const contentEl = mainContentRef.current;
+    if (contentEl) {
+      contentEl.addEventListener('scroll', handleScroll, { passive: true });
+      return () => {
+        contentEl.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [handleScroll]);
   
   const handleSaveDraft = useCallback(() => {
     if (!query.trim()) return;
@@ -80,6 +121,7 @@ const App: React.FC = () => {
     setBuildPlan(null);
     setIsLoading(true);
     setLoadingMessage('AIP Agent is thinking...');
+    setIsAutoScrollEnabled(true); // Re-enable auto-scroll for new queries
 
     try {
       const result = await generateFoundryGuidance(query);
@@ -191,6 +233,17 @@ const App: React.FC = () => {
       setIsClearModalOpen(false);
   };
 
+  const handleScrollToBottom = () => {
+    if (mainContentRef.current) {
+        mainContentRef.current.scrollTo({
+            top: mainContentRef.current.scrollHeight,
+            behavior: 'smooth',
+        });
+    }
+    // Scrolling to bottom implies the user wants to re-enable auto-scroll
+    setIsAutoScrollEnabled(true);
+  };
+
   return (
     <div className="flex h-screen bg-foundry-dark text-gray-200">
       <HistoryPanel
@@ -203,7 +256,7 @@ const App: React.FC = () => {
         onClose={() => setIsHistoryPanelOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col h-screen">
+      <main className="flex-1 flex flex-col h-screen relative">
         <header className="flex items-center p-4 border-b border-foundry-slate/50 bg-foundry-charcoal/80 backdrop-blur-sm">
           <button 
             onClick={() => setIsHistoryPanelOpen(true)}
@@ -216,7 +269,7 @@ const App: React.FC = () => {
           <h1 className="text-xl font-bold ml-3">Foundry AIP Agent</h1>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div ref={mainContentRef} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-4xl mx-auto">
             {!response && !isLoading && !error && (
               <div className="text-center py-16">
@@ -255,6 +308,17 @@ const App: React.FC = () => {
             />
           </div>
         </div>
+        
+        {response && !isAutoScrollEnabled && (
+          <button
+              onClick={handleScrollToBottom}
+              className="absolute bottom-[170px] right-8 z-10 p-2 bg-foundry-charcoal/80 text-foundry-accent rounded-full hover:bg-foundry-slate hover:text-white transition-all futuristic-glow-button animate-bounce"
+              title="Scroll to bottom"
+              aria-label="Scroll to bottom"
+          >
+              <ArrowDownCircleIcon className="w-7 h-7" />
+          </button>
+        )}
       </main>
 
       <ConfirmationModal

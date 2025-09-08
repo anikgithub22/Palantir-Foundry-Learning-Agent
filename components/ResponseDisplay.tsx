@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { BuildIcon } from './icons';
+import CodeBlock from './CodeBlock';
 
 interface ResponseDisplayProps {
   responseText: string;
@@ -54,86 +55,115 @@ const ResponseDisplay: React.FC<ResponseDisplayProps> = ({ responseText, onBuild
     };
   }, [responseText]);
 
-  const renderSectionContent = (content: string | undefined) => {
+  const renderSectionContent = (content: string | undefined, isMethodology = false) => {
     if (!content) return null;
   
     const lines = content.split('\n');
     let isCodeBlock = false;
     let codeBlockContent = '';
     let codeBlockLang = '';
-  
-    const elements = [];
+    
+    const elements: { type: string; content: any; props?: any }[] = [];
     let listItems: string[] = [];
+    const stepIdMap: { [key: number]: string } = {};
+
+    const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/[\s_]+/g, '-');
   
     const flushList = () => {
       if (listItems.length > 0) {
-        elements.push(
-          <ul key={`ul-${elements.length}`} className="list-disc list-outside space-y-2 pl-5 mt-2">
-            {listItems.map((item, index) => (
-              <li key={index} className="text-gray-300" dangerouslySetInnerHTML={{ __html: item }}></li>
-            ))}
-          </ul>
-        );
+        elements.push({ type: 'ul', content: [...listItems] });
         listItems = [];
       }
     };
   
-    for (let i = 0; i < lines.length; i++) {
-      let line = lines[i];
-  
+    // --- First Pass: Build elements and identify steps ---
+    lines.forEach((line) => {
       if (line.trim().startsWith('```')) {
         flushList();
         isCodeBlock = !isCodeBlock;
         if (isCodeBlock) {
           codeBlockLang = line.trim().substring(3);
         } else {
-          elements.push(
-            <pre key={`code-${elements.length}`} className="bg-foundry-dark/70 p-4 rounded-md overflow-x-auto my-4 border border-foundry-slate/50 text-cyan-300">
-              <code className={`language-${codeBlockLang} text-sm`}>{codeBlockContent}</code>
-            </pre>
-          );
+          elements.push({ type: 'code', content: codeBlockContent, props: { lang: codeBlockLang } });
           codeBlockContent = '';
           codeBlockLang = '';
         }
-        continue;
+        return;
       }
   
       if (isCodeBlock) {
         codeBlockContent += line + '\n';
-        continue;
+        return;
       }
   
       const listItemMatch = line.match(/^(\s*)(-|\d+\.)\s+(.*)/);
       if (listItemMatch) {
-        if(listItems.length === 0) flushList(); // Flush paragraphs before new list
+        if (listItems.length === 0) flushList();
         listItems.push(listItemMatch[3]);
       } else {
         flushList();
         if (line.trim()) {
-           // Treat lines with '**' as subheadings
-          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-             elements.push(<h4 key={`h4-${elements.length}`} className="font-semibold text-gray-200 mt-4">{line.trim().replace(/\*\*/g, '')}</h4>);
+          const stepHeaderMatch = isMethodology && line.match(/^\s*(\d+)\.\s+\*\*(.*?)\*\*/);
+          if (stepHeaderMatch) {
+            const stepNumber = parseInt(stepHeaderMatch[1], 10);
+            const stepTitle = stepHeaderMatch[2].replace(/:$/, '');
+            const stepId = `step-${stepNumber}-${slugify(stepTitle)}`;
+            stepIdMap[stepNumber] = stepId;
+            elements.push({ type: 'h4', content: line.trim().replace(/\*\*/g, ''), props: { id: stepId } });
+          } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+            elements.push({ type: 'h4', content: line.trim().replace(/\*\*/g, '') });
           } else {
-             elements.push(<p key={`p-${elements.length}`} className="text-gray-300 mt-2">{line}</p>);
+            elements.push({ type: 'p', content: line });
           }
         } else if (elements.length > 0) {
-            // Preserve empty lines as paragraphs for spacing, but only if they are not at the beginning
-            elements.push(<p key={`p-empty-${elements.length}`} className="h-4"></p>);
+          elements.push({ type: 'p', content: '', props: { className: "h-4" } });
         }
       }
-    }
+    });
   
-    flushList(); // Flush any remaining list items
-  
+    flushList();
     if (isCodeBlock && codeBlockContent) {
-       elements.push(
-            <pre key={`code-final-${elements.length}`} className="bg-foundry-dark/70 p-4 rounded-md overflow-x-auto my-4 border border-foundry-slate/50 text-cyan-300">
-              <code className={`language-${codeBlockLang} text-sm`}>{codeBlockContent}</code>
-            </pre>
-        );
+      elements.push({ type: 'code', content: codeBlockContent, props: { lang: codeBlockLang } });
     }
 
-    return elements;
+    // --- Second Pass: Link steps and render ---
+    const linkifyStepReferences = (text: string) => {
+        return text.replace(/([Ss]tep\s+(\d+))/g, (match, _, stepNum) => {
+            const stepId = stepIdMap[parseInt(stepNum, 10)];
+            if (stepId) {
+                return `<a href="#${stepId}" class="text-foundry-accent hover:underline">${match}</a>`;
+            }
+            return match; // Return original text if step ID not found
+        });
+    };
+
+    return elements.map((el, index) => {
+      switch (el.type) {
+        case 'h4':
+          return <h4 key={index} id={el.props?.id} className="font-semibold text-gray-200 mt-4">{el.content}</h4>;
+        case 'p':
+          const linkedContent = isMethodology ? linkifyStepReferences(el.content) : el.content;
+          return <p key={index} className={`text-gray-300 mt-2 ${el.props?.className || ''}`} dangerouslySetInnerHTML={{ __html: linkedContent }} />;
+        case 'ul':
+          return (
+            <ul key={index} className="list-disc list-outside space-y-2 pl-5 mt-2">
+              {(el.content as string[]).map((item, itemIndex) => (
+                <li key={itemIndex} className="text-gray-300" dangerouslySetInnerHTML={{ __html: isMethodology ? linkifyStepReferences(item) : item }}></li>
+              ))}
+            </ul>
+          );
+        case 'code':
+          return (
+            <CodeBlock 
+              key={index} 
+              lang={el.props.lang} 
+              code={el.content.trim()} 
+            />
+          );
+        default:
+          return null;
+      }
+    });
   };
 
   return (
@@ -154,7 +184,7 @@ const ResponseDisplay: React.FC<ResponseDisplayProps> = ({ responseText, onBuild
       {parsedResponse.methodology && (
         <section className="mt-6">
           <h3 className="text-xl font-semibold text-gray-200 border-l-4 border-foundry-accent pl-4">Methodology & Steps</h3>
-          <div className="pl-4">{renderSectionContent(parsedResponse.methodology)}</div>
+          <div className="pl-4">{renderSectionContent(parsedResponse.methodology, true)}</div>
         </section>
       )}
 
